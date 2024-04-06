@@ -20,8 +20,8 @@ describe("ProductForm", () => {
     });
 
     return {
-      waitForFormToRender: () => screen.findByRole("form"),
-      getFormFields: () => {
+      waitForFormToRender: async () => {
+        await screen.findByRole("form");
         return {
           nameField: screen.getByPlaceholderText(/name/i),
           priceField: screen.getByPlaceholderText(/price/i),
@@ -32,11 +32,10 @@ describe("ProductForm", () => {
   };
 
   it("should render form fields", async () => {
-    const { waitForFormToRender, getFormFields } = renderComponent();
+    const { waitForFormToRender } = renderComponent();
 
-    await waitForFormToRender();
-
-    const { nameField, priceField, categoryField } = getFormFields();
+    const { nameField, priceField, categoryField } =
+      await waitForFormToRender();
     expect(nameField).toBeInTheDocument();
     expect(priceField).toBeInTheDocument();
     expect(categoryField).toBeInTheDocument();
@@ -49,13 +48,21 @@ describe("ProductForm", () => {
       price: 100,
       categoryId: category.id,
     };
-    const { waitForFormToRender, getFormFields } = renderComponent(product);
+    const { waitForFormToRender } = renderComponent(product);
 
-    await waitForFormToRender();
+    const { nameField, priceField, categoryField } =
+      await waitForFormToRender();
 
-    const { nameField, priceField, categoryField } = getFormFields();
     expect(nameField).toHaveValue(product.name);
     expect(priceField).toHaveValue(product.price.toString());
     expect(categoryField).toHaveTextContent(category.name);
+  });
+
+  it("should focus the name field when the form loads", async () => {
+    const { waitForFormToRender } = renderComponent();
+
+    const { nameField } = await waitForFormToRender();
+
+    expect(nameField).toHaveFocus();
   });
 });
