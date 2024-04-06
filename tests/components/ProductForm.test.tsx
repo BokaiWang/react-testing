@@ -68,21 +68,34 @@ describe("ProductForm", () => {
     expect(nameField).toHaveFocus();
   });
 
-  it("should display an error if name field is missing", async () => {
-    const { waitForFormToRender } = renderComponent();
+  it.each([
+    { scenario: "missing", errorMessage: /required/i },
+    {
+      scenario: "longer than 255 characters",
+      name: "a".repeat(256),
+      errorMessage: "255",
+    },
+  ])(
+    "should display an error if name field is $scenario",
+    async ({ name, errorMessage }) => {
+      const { waitForFormToRender } = renderComponent();
 
-    const { priceField, categoryField, submitButton } =
-      await waitForFormToRender();
+      const { nameField, priceField, categoryField, submitButton } =
+        await waitForFormToRender();
 
-    const user = userEvent.setup();
-    await user.type(priceField, "10");
-    await user.click(categoryField);
-    const options = screen.getAllByRole("option");
-    await user.click(options[0]);
-    await user.click(submitButton);
+      const user = userEvent.setup();
+      if (name !== undefined) {
+        await user.type(nameField, name);
+      }
+      await user.type(priceField, "10");
+      await user.click(categoryField);
+      const options = screen.getAllByRole("option");
+      await user.click(options[0]);
+      await user.click(submitButton);
 
-    const error = screen.getByRole("alert");
-    expect(error).toBeInTheDocument();
-    expect(error).toHaveTextContent(/required/i);
-  });
+      const error = screen.getByRole("alert");
+      expect(error).toBeInTheDocument();
+      expect(error).toHaveTextContent(errorMessage);
+    }
+  );
 });
