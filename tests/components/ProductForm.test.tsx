@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProductForm from "../../src/components/ProductForm";
@@ -23,11 +26,56 @@ describe("ProductForm", () => {
     return {
       waitForFormToRender: async () => {
         await screen.findByRole("form");
+        const nameField = screen.getByPlaceholderText(/name/i);
+        const priceField = screen.getByPlaceholderText(/price/i);
+        const categoryField = screen.getByRole("combobox", {
+          name: /category/i,
+        });
+        const submitButton = screen.getByRole("button");
+
+        type FormData = {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          [K in keyof Product]: any;
+        };
+
+        const validData: FormData = {
+          id: 1,
+          name: "a",
+          price: 10,
+          categoryId: 1,
+        };
+
+        const fillOutForm = async (product: FormData) => {
+          const user = userEvent.setup();
+
+          if (product.name !== undefined) {
+            await user.type(nameField, product.name);
+          }
+
+          if (product.price !== undefined) {
+            await user.type(priceField, product.price.toString());
+          }
+
+          await user.click(categoryField);
+          const options = screen.getAllByRole("option");
+          await user.click(options[0]);
+          await user.click(submitButton);
+        };
+
+        const expectErrorToBeInTheDocument = (errorMessage: RegExp) => {
+          const error = screen.getByRole("alert");
+          expect(error).toBeInTheDocument();
+          expect(error).toHaveTextContent(errorMessage);
+        };
+
         return {
-          nameField: screen.getByPlaceholderText(/name/i),
-          priceField: screen.getByPlaceholderText(/price/i),
-          categoryField: screen.getByRole("combobox", { name: /category/i }),
-          submitButton: screen.getByRole("button"),
+          nameField,
+          priceField,
+          categoryField,
+          submitButton,
+          fillOutForm,
+          validData,
+          expectErrorToBeInTheDocument,
         };
       },
     };
@@ -73,29 +121,18 @@ describe("ProductForm", () => {
     {
       scenario: "longer than 255 characters",
       name: "a".repeat(256),
-      errorMessage: "255",
+      errorMessage: /255/,
     },
   ])(
     "should display an error if name field is $scenario",
     async ({ name, errorMessage }) => {
       const { waitForFormToRender } = renderComponent();
 
-      const { nameField, priceField, categoryField, submitButton } =
+      const { fillOutForm, validData, expectErrorToBeInTheDocument } =
         await waitForFormToRender();
+      await fillOutForm({ ...validData, name });
 
-      const user = userEvent.setup();
-      if (name !== undefined) {
-        await user.type(nameField, name);
-      }
-      await user.type(priceField, "10");
-      await user.click(categoryField);
-      const options = screen.getAllByRole("option");
-      await user.click(options[0]);
-      await user.click(submitButton);
-
-      const error = screen.getByRole("alert");
-      expect(error).toBeInTheDocument();
-      expect(error).toHaveTextContent(errorMessage);
+      expectErrorToBeInTheDocument(errorMessage);
     }
   );
 
@@ -109,24 +146,12 @@ describe("ProductForm", () => {
     "should display an error when price is $scenario",
     async ({ price, errorMessage }) => {
       const { waitForFormToRender } = renderComponent();
-      const { nameField, priceField, categoryField, submitButton } =
+      const { fillOutForm, validData, expectErrorToBeInTheDocument } =
         await waitForFormToRender();
 
-      const user = userEvent.setup();
-      await user.type(nameField, "testing name");
-      if (price !== undefined) {
-        await user.type(priceField, price.toString());
-      }
-      await user.click(categoryField);
-      const options = screen.getAllByRole("option");
-      await user.click(options[0]);
-      await user.click(submitButton);
+      await fillOutForm({ ...validData, price });
 
-      const error = screen.getByRole("alert");
-      expect(error).toBeInTheDocument();
-      expect(error).toHaveTextContent(errorMessage);
+      expectErrorToBeInTheDocument(errorMessage);
     }
   );
-
-  it("should display an error when price is not a number", async () => {});
 });
