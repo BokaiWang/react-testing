@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Toaster } from "react-hot-toast";
 import ProductForm from "../../src/components/ProductForm";
 import { Category, Product } from "../../src/entities";
 import AllProviders from "../AllProviders";
@@ -19,11 +20,19 @@ describe("ProductForm", () => {
   });
 
   const renderComponent = (product?: Product) => {
-    render(<ProductForm product={product} onSubmit={vi.fn()} />, {
-      wrapper: AllProviders,
-    });
+    const onSubmit = vi.fn();
+    render(
+      <>
+        <ProductForm product={product} onSubmit={onSubmit} />
+        <Toaster />
+      </>,
+      {
+        wrapper: AllProviders,
+      }
+    );
 
     return {
+      onSubmit,
       waitForFormToRender: async () => {
         await screen.findByRole("form");
         const nameField = screen.getByPlaceholderText(/name/i);
@@ -42,7 +51,7 @@ describe("ProductForm", () => {
           id: 1,
           name: "a",
           price: 10,
-          categoryId: 1,
+          categoryId: category.id,
         };
 
         const fillOutForm = async (product: FormData) => {
@@ -55,7 +64,7 @@ describe("ProductForm", () => {
           if (product.price !== undefined) {
             await user.type(priceField, product.price.toString());
           }
-
+          await user.tab();
           await user.click(categoryField);
           const options = screen.getAllByRole("option");
           await user.click(options[0]);
@@ -154,4 +163,27 @@ describe("ProductForm", () => {
       expectErrorToBeInTheDocument(errorMessage);
     }
   );
+
+  it("should call onSubmit with the correct data", async () => {
+    const { waitForFormToRender, onSubmit } = renderComponent();
+    const { fillOutForm, validData } = await waitForFormToRender();
+
+    await fillOutForm(validData);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unused-vars
+    const { id, ...formData } = validData;
+
+    expect(onSubmit).toHaveBeenCalledWith(formData);
+  });
+
+  it("should render a toast when submission fails", async () => {
+    const { waitForFormToRender, onSubmit } = renderComponent();
+    const { fillOutForm, validData } = await waitForFormToRender();
+    onSubmit.mockRejectedValue({});
+
+    await fillOutForm(validData);
+
+    const toast = await screen.findByRole("status");
+    expect(toast).toBeInTheDocument();
+    expect(toast).toHaveTextContent(/error/i);
+  });
 });
